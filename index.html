@@ -1,130 +1,638 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChatWithKhalifa</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat With Khalifa</title>
+  <meta name="theme-color" content="#111827" />
+  <link rel="manifest" href="manifest.json">
 
-<style>
-body{
-    font-family: Arial;
-    background:#f2f6ff;
-    margin:0;
-}
+  <style>
+    :root{
+      /* Discord-ish dark */
+      --bg:#0b1020;
+      --server:#0a0f1e;
+      --sidebar:#121a33;
+      --sidebar2:#0f1730;
+      --chat:#0f162e;
+      --top:#0e152d;
+      --border:#1f2a4d;
 
-header{
-    background:#1a73e8;
-    color:white;
-    text-align:center;
-    padding:15px;
-    font-size:18px;
-    font-weight:bold;
-}
+      --text:#e7eefc;
+      --muted:#9fb1d1;
+      --brand:#5865F2; /* Discord blurple */
+      --green:#22c55e;
+      --danger:#ef4444;
 
-#chat{
-    height:70vh;
-    overflow-y:auto;
-    padding:10px;
-}
+      --bubble:#131c38;
+      --bubbleMe:#1b2a6b;
+      --shadow: 0 10px 28px rgba(0,0,0,.25);
+    }
 
-.message{
-    background:white;
-    padding:8px;
-    margin:6px 0;
-    border-radius:10px;
-    font-size:14px;
-    box-shadow:0 1px 3px rgba(0,0,0,0.1);
-}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      background: radial-gradient(1000px 700px at 30% -10%, rgba(88,101,242,.25), transparent 60%),
+                  radial-gradient(900px 600px at 90% 20%, rgba(34,197,94,.12), transparent 55%),
+                  linear-gradient(180deg, #070a14, var(--bg));
+      color:var(--text);
+      overflow:hidden;
+    }
 
-img{
-    max-width:160px;
-    border-radius:10px;
-}
+    /* Layout */
+    .app{
+      height:100%;
+      display:grid;
+      grid-template-columns: 76px 300px 1fr;
+    }
 
-#inputArea{
-    position:fixed;
-    bottom:0;
-    width:100%;
-    display:flex;
-    background:white;
-    border-top:1px solid #ddd;
-}
+    /* Servers bar (left) */
+    .servers{
+      background: rgba(10,15,30,.92);
+      border-right:1px solid var(--border);
+      padding:10px 10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      align-items:center;
+    }
+    .srv{
+      width:52px;height:52px;border-radius:18px;
+      display:grid;place-items:center;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.06);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      box-shadow: var(--shadow);
+      transition: .15s ease;
+      user-select:none;
+    }
+    .srv:hover{transform: translateY(-1px); border-color: rgba(88,101,242,.45)}
+    .srv.active{background: rgba(88,101,242,.22); border-color: rgba(88,101,242,.55)}
+    .srvDot{
+      width:10px;height:10px;border-radius:999px;background:rgba(255,255,255,.25);
+    }
 
-input{
-    flex:1;
-    padding:12px;
-    border:none;
-    font-size:14px;
-}
+    /* Contacts/Channels column */
+    .side{
+      background: rgba(18,26,51,.92);
+      border-right:1px solid var(--border);
+      display:flex;
+      flex-direction:column;
+      min-width:260px;
+    }
 
-button{
-    padding:12px;
-    border:none;
-    background:#1a73e8;
-    color:white;
-}
-</style>
+    .sideTop{
+      padding:14px 14px;
+      background: rgba(14,21,45,.85);
+      border-bottom:1px solid var(--border);
+      backdrop-filter: blur(6px);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .sideTop .title{font-weight:900;font-size:14px}
+    .badge{
+      font-size:12px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: rgba(88,101,242,.18);
+      border:1px solid rgba(88,101,242,.35);
+      color: var(--text);
+      white-space:nowrap;
+    }
+
+    .me{
+      padding:12px 14px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      border-bottom:1px solid var(--border);
+    }
+    .avatar{
+      width:34px;height:34px;border-radius:14px;
+      background: rgba(255,255,255,.08);
+      display:grid;place-items:center;font-weight:900;
+      border:1px solid rgba(255,255,255,.06);
+    }
+    .me input{
+      width:100%;
+      background: rgba(11,16,32,.9);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      color:var(--text);
+      outline:none;
+    }
+
+    .controls{
+      padding:10px 14px;
+      display:flex;
+      gap:8px;
+      border-bottom:1px solid var(--border);
+    }
+    .btn{
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background: rgba(11,16,32,.85);
+      color:var(--text);
+      cursor:pointer;
+      font-weight:800;
+      transition:.12s ease;
+    }
+    .btn:active{transform: scale(.98)}
+    .btn.primary{background: var(--brand); border-color: transparent;}
+    .btn.green{background: rgba(34,197,94,.95); border-color: transparent;}
+    .btn.ghost{background: transparent;}
+    .btn.danger{border-color: rgba(239,68,68,.35); color:#ffb4b4}
+
+    .search{
+      padding:10px 14px;
+      border-bottom:1px solid var(--border);
+    }
+    .search input{
+      width:100%;
+      background: rgba(11,16,32,.9);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      color:var(--text);
+      outline:none;
+    }
+
+    .contacts{
+      padding:10px 10px;
+      overflow:auto;
+    }
+
+    .sectionLabel{
+      padding:8px 8px 6px;
+      color:var(--muted);
+      font-size:12px;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+
+    .contact{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 10px;
+      border-radius:12px;
+      cursor:pointer;
+      border:1px solid transparent;
+    }
+    .contact:hover{background: rgba(255,255,255,.04)}
+    .contact.active{
+      background: rgba(88,101,242,.16);
+      border-color: rgba(88,101,242,.35);
+    }
+    .contact .meta{flex:1; min-width:0}
+    .contact .name{font-weight:900;font-size:14px}
+    .contact .last{
+      color:var(--muted);
+      font-size:12px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .pill{font-size:11px;color:var(--muted);white-space:nowrap}
+
+    /* Chat column */
+    .main{
+      background: rgba(15,22,46,.88);
+      display:flex;
+      flex-direction:column;
+      min-width: 0;
+    }
+
+    .topbar{
+      padding:14px 16px;
+      background: rgba(14,21,45,.88);
+      border-bottom:1px solid var(--border);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      backdrop-filter: blur(6px);
+    }
+
+    .who{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .whoText{min-width:0}
+    .who .title{font-weight:1000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .who .sub{font-size:12px;color:var(--muted)}
+
+    .chat{
+      flex:1;
+      overflow:auto;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+
+    .msgRow{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      max-width: 920px;
+    }
+
+    .msgAvatar{
+      width:38px;height:38px;border-radius:14px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.06);
+      display:grid;place-items:center;
+      font-weight:900;
+      flex:0 0 auto;
+      margin-top:2px;
+    }
+
+    .msgCard{
+      background: rgba(19,28,56,.7);
+      border:1px solid rgba(255,255,255,.06);
+      border-radius:16px;
+      padding:10px 12px;
+      box-shadow: var(--shadow);
+      min-width:0;
+      flex:1;
+    }
+
+    .msgHead{
+      display:flex;
+      align-items:baseline;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .from{font-weight:1000}
+    .time{font-size:11px;color:rgba(231,238,252,.65)}
+    .msgText{margin-top:4px; white-space:pre-wrap; word-wrap:break-word;}
+    .msgCard.me{
+      background: rgba(27,42,107,.7);
+      border-color: rgba(88,101,242,.35);
+    }
+
+    .msgCard img{
+      margin-top:8px;
+      max-width:min(520px, 100%);
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.08);
+      display:block;
+    }
+
+    .composer{
+      border-top:1px solid var(--border);
+      padding:12px 12px;
+      display:flex;
+      gap:10px;
+      background: rgba(14,21,45,.85);
+    }
+    .composer textarea{
+      flex:1;
+      resize:none;
+      min-height:46px;
+      max-height:140px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background: rgba(11,16,32,.9);
+      color:var(--text);
+      padding:12px 12px;
+      outline:none;
+      font-size:14px;
+    }
+
+    .hint{
+      padding:0 14px 12px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    /* Mobile: hide servers/side */
+    @media (max-width:900px){
+      .app{grid-template-columns: 76px 260px 1fr;}
+    }
+    @media (max-width:760px){
+      .app{grid-template-columns: 1fr;}
+      .servers,.side{display:none}
+    }
+  </style>
 </head>
 
 <body>
+  <div class="app">
+    <!-- Servers bar -->
+    <aside class="servers" title="Servers">
+      <div class="srv active" id="srvHome">CK</div>
+      <div class="srv" id="srvDot"><div class="srvDot"></div></div>
+    </aside>
 
-<header>
-ChatWithKhalifa.com 💬
-</header>
+    <!-- Contacts/Channels -->
+    <aside class="side">
+      <div class="sideTop">
+        <div class="title">ChatWithKhalifa.com</div>
+        <div class="badge">No Firebase ✅</div>
+      </div>
 
-<div id="chat"></div>
+      <div class="me">
+        <div class="avatar" id="meAvatar">K</div>
+        <input id="meName" placeholder="Your name (e.g., Khalifa)" maxlength="20" />
+      </div>
 
-<div id="inputArea">
-<input type="text" id="messageInput" placeholder="Type message or paste GIF link">
-<button onclick="sendMessage()">Send</button>
-</div>
+      <div class="controls">
+        <button class="btn green" id="addContactBtn">+ Add</button>
+        <button class="btn" id="exportBtn">Export</button>
+        <button class="btn" id="importBtn">Import</button>
+      </div>
 
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+      <div class="search">
+        <input id="search" placeholder="Search contacts..." />
+      </div>
+
+      <div class="contacts" id="contacts">
+        <div class="sectionLabel">Direct Messages</div>
+      </div>
+
+      <div class="hint">
+        Works offline after first load ✅<br>
+        GIFs: paste a direct <b>.gif</b> link or image URL.
+      </div>
+    </aside>
+
+    <!-- Chat -->
+    <main class="main">
+      <div class="topbar">
+        <div class="who">
+          <div class="avatar" id="chatAvatar">?</div>
+          <div class="whoText">
+            <div class="title" id="chatTitle">No chat selected</div>
+            <div class="sub" id="chatSub">Add a contact to start</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn danger" id="clearChatBtn">Clear</button>
+        </div>
+      </div>
+
+      <div class="chat" id="chat"></div>
+
+      <div class="composer">
+        <textarea id="msg" placeholder="Message… (Enter to send, Shift+Enter = new line)"></textarea>
+        <button class="btn primary" id="sendBtn">Send</button>
+      </div>
+      <div class="hint" style="padding-top:0">
+        Tip: send a GIF by pasting a link ending with <b>.gif</b>
+      </div>
+    </main>
+  </div>
 
 <script>
+  // ---------- Storage ----------
+  const KEY = "cwk_v2_discord";
+  const load = () => JSON.parse(localStorage.getItem(KEY) || "{}");
+  const save = (data) => localStorage.setItem(KEY, JSON.stringify(data));
 
-// 🔥 ضع بيانات Firebase الخاصة بك هنا
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-};
+  // ---------- State ----------
+  let state = load();
+  if (!state.me) state.me = { name: "Khalifa" };
+  if (!state.contacts) state.contacts = [];
+  if (!state.chats) state.chats = {};
+  if (!state.activeId && state.contacts[0]) state.activeId = state.contacts[0].id;
 
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+  // Seed
+  if (state.contacts.length === 0) {
+    const id = crypto.randomUUID();
+    state.contacts.push({ id, name: "Friend" });
+    state.chats[id] = [
+      { from:"Friend", text:"Yo! This is Discord style 😄", ts:Date.now()-60000 },
+      { from: state.me.name, text:"And it works on low internet ✅", ts:Date.now()-30000 },
+      { from:"Friend", text:"Paste a .gif link to send a GIF!", ts:Date.now()-15000 }
+    ];
+    state.activeId = id;
+    save(state);
+  }
 
-function sendMessage(){
-    let message = document.getElementById("messageInput").value;
+  // ---------- Elements ----------
+  const meName = document.getElementById("meName");
+  const meAvatar = document.getElementById("meAvatar");
+  const contactsEl = document.getElementById("contacts");
+  const searchEl = document.getElementById("search");
 
-    if(message.trim() === "") return;
+  const chatEl = document.getElementById("chat");
+  const chatTitle = document.getElementById("chatTitle");
+  const chatSub = document.getElementById("chatSub");
+  const chatAvatar = document.getElementById("chatAvatar");
 
-    database.ref("messages").push({
-        text: message
+  const msgEl = document.getElementById("msg");
+  const sendBtn = document.getElementById("sendBtn");
+  const addContactBtn = document.getElementById("addContactBtn");
+  const clearChatBtn = document.getElementById("clearChatBtn");
+  const exportBtn = document.getElementById("exportBtn");
+  const importBtn = document.getElementById("importBtn");
+
+  // ---------- Helpers ----------
+  const initials = (name) => (name || "?").trim().slice(0,1).toUpperCase();
+  const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+
+  function escapeHtml(str){
+    return (str||"").replace(/[&<>"']/g, c => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+    }[c]));
+  }
+  function safeAttr(url){ return (url||"").replace(/"/g, "%22"); }
+
+  function isImageUrl(text){
+    const t = (text||"").trim();
+    return /^https?:\/\/\S+\.(gif|png|jpg|jpeg|webp)(\?\S*)?$/i.test(t);
+  }
+
+  function setMeName(name){
+    state.me.name = (name || "Khalifa").trim().slice(0,20);
+    meAvatar.textContent = initials(state.me.name);
+    save(state);
+    render();
+  }
+
+  function getActiveContact(){
+    return state.contacts.find(c => c.id === state.activeId) || null;
+  }
+
+  // ---------- Render ----------
+  function renderContacts(){
+    const q = (searchEl.value || "").toLowerCase().trim();
+
+    // Keep the section label at top
+    contactsEl.innerHTML = `<div class="sectionLabel">Direct Messages</div>`;
+
+    const filtered = state.contacts.filter(c => c.name.toLowerCase().includes(q));
+    filtered.forEach(c => {
+      const active = c.id === state.activeId;
+      const last = (state.chats[c.id] || []).slice(-1)[0];
+      const lastText = last ? (isImageUrl(last.text) ? "🖼️ Image/GIF" : last.text) : "No messages yet";
+
+      const row = document.createElement("div");
+      row.className = "contact" + (active ? " active" : "");
+      row.onclick = () => { state.activeId = c.id; save(state); render(); };
+
+      row.innerHTML = `
+        <div class="avatar">${initials(c.name)}</div>
+        <div class="meta">
+          <div class="name">${escapeHtml(c.name)}</div>
+          <div class="last">${escapeHtml(lastText)}</div>
+        </div>
+        <div class="pill">${last ? fmtTime(last.ts) : ""}</div>
+      `;
+      contactsEl.appendChild(row);
     });
+  }
 
-    document.getElementById("messageInput").value = "";
-}
+  function renderChat(){
+    const c = getActiveContact();
+    chatEl.innerHTML = "";
 
-database.ref("messages").on("child_added", function(snapshot){
-    let data = snapshot.val();
-    let chat = document.getElementById("chat");
-
-    let msgDiv = document.createElement("div");
-    msgDiv.className = "message";
-
-    if(data.text.includes(".gif")){
-        msgDiv.innerHTML = `<img src="${data.text}">`;
-    } else {
-        msgDiv.innerText = data.text;
+    if (!c){
+      chatTitle.textContent = "No chat selected";
+      chatSub.textContent = "Add a contact to start";
+      chatAvatar.textContent = "?";
+      return;
     }
 
-    chat.appendChild(msgDiv);
-    chat.scrollTop = chat.scrollHeight;
-});
-</script>
+    chatTitle.textContent = c.name;
+    chatSub.textContent = "Saved on this device • Works offline";
+    chatAvatar.textContent = initials(c.name);
 
+    const messages = state.chats[c.id] || [];
+    messages.forEach(m => {
+      const mine = m.from === state.me.name;
+
+      const row = document.createElement("div");
+      row.className = "msgRow";
+
+      row.innerHTML = `
+        <div class="msgAvatar">${initials(m.from)}</div>
+        <div class="msgCard ${mine ? "me" : ""}">
+          <div class="msgHead">
+            <div class="from">${escapeHtml(m.from)}</div>
+            <div class="time">${fmtTime(m.ts)}</div>
+          </div>
+          ${
+            isImageUrl(m.text)
+              ? `<img loading="lazy" src="${safeAttr(m.text)}" alt="image">`
+              : `<div class="msgText">${escapeHtml(m.text)}</div>`
+          }
+        </div>
+      `;
+
+      chatEl.appendChild(row);
+    });
+
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function render(){
+    meName.value = state.me.name;
+    meAvatar.textContent = initials(state.me.name);
+    renderContacts();
+    renderChat();
+  }
+
+  // ---------- Actions ----------
+  function addContact(){
+    const name = prompt("Contact name? (example: Ahmed)");
+    if (!name) return;
+    const id = crypto.randomUUID();
+    state.contacts.unshift({ id, name: name.trim().slice(0,24) });
+    state.chats[id] = [];
+    state.activeId = id;
+    save(state);
+    render();
+  }
+
+  function send(){
+    const c = getActiveContact();
+    if (!c) return alert("Add a contact first.");
+    const text = (msgEl.value || "").trim();
+    if (!text) return;
+
+    const m = { from: state.me.name, text, ts: Date.now() };
+    if (!state.chats[c.id]) state.chats[c.id] = [];
+    state.chats[c.id].push(m);
+
+    save(state);
+    msgEl.value = "";
+    render();
+  }
+
+  function clearChat(){
+    const c = getActiveContact();
+    if (!c) return;
+    if (!confirm("Clear messages for " + c.name + "?")) return;
+    state.chats[c.id] = [];
+    save(state);
+    render();
+  }
+
+  function exportData(){
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "chat-with-khalifa-backup.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function importData(){
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const text = await file.text();
+      try{
+        const data = JSON.parse(text);
+        if (!data.me || !data.contacts || !data.chats) throw new Error("Bad file");
+        state = data;
+        save(state);
+        render();
+      }catch(e){
+        alert("This backup file is not valid.");
+      }
+    };
+    input.click();
+  }
+
+  // ---------- Events ----------
+  meName.addEventListener("change", e => setMeName(e.target.value));
+  searchEl.addEventListener("input", renderContacts);
+  addContactBtn.addEventListener("click", addContact);
+  sendBtn.addEventListener("click", send);
+  clearChatBtn.addEventListener("click", clearChat);
+  exportBtn.addEventListener("click", exportData);
+  importBtn.addEventListener("click", importData);
+
+  msgEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      send();
+    }
+  });
+
+  // Offline (service worker)
+  if ("serviceWorker" in navigator){
+    navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+  }
+
+  render();
+</script>
 </body>
 </html>
-
