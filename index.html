@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ChatWithKhalifa</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#f2f6ff;
+    margin:0;
+}
+
+header{
+    background:#1a73e8;
+    color:white;
+    text-align:center;
+    padding:15px;
+    font-size:18px;
+    font-weight:bold;
+}
+
+#chat{
+    height:70vh;
+    overflow-y:auto;
+    padding:10px;
+}
+
+.message{
+    background:white;
+    padding:8px;
+    margin:6px 0;
+    border-radius:10px;
+    font-size:14px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.1);
+}
+
+img{
+    max-width:160px;
+    border-radius:10px;
+}
+
+#inputArea{
+    position:fixed;
+    bottom:0;
+    width:100%;
+    display:flex;
+    background:white;
+    border-top:1px solid #ddd;
+}
+
+input{
+    flex:1;
+    padding:12px;
+    border:none;
+    font-size:14px;
+}
+
+button{
+    padding:12px;
+    border:none;
+    background:#1a73e8;
+    color:white;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ChatWithKhalifa.com 💬
+</header>
+
+<div id="chat"></div>
+
+<div id="inputArea">
+<input type="text" id="messageInput" placeholder="Type message or paste GIF link">
+<button onclick="sendMessage()">Send</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js"></script>
+
+<script>
+
+// 🔥 ضع بيانات Firebase الخاصة بك هنا
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  databaseURL: "YOUR_DATABASE_URL",
+  projectId: "YOUR_PROJECT_ID",
+};
+
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
+
+function sendMessage(){
+    let message = document.getElementById("messageInput").value;
+
+    if(message.trim() === "") return;
+
+    database.ref("messages").push({
+        text: message
+    });
+
+    document.getElementById("messageInput").value = "";
+}
+
+database.ref("messages").on("child_added", function(snapshot){
+    let data = snapshot.val();
+    let chat = document.getElementById("chat");
+
+    let msgDiv = document.createElement("div");
+    msgDiv.className = "message";
+
+    if(data.text.includes(".gif")){
+        msgDiv.innerHTML = `<img src="${data.text}">`;
+    } else {
+        msgDiv.innerText = data.text;
+    }
+
+    chat.appendChild(msgDiv);
+    chat.scrollTop = chat.scrollHeight;
+});
+</script>
+
+</body>
+</html>
+
