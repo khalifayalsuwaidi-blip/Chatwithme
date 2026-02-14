@@ -475,4 +475,22 @@ if (window.location.hash === "#admin") {function checkAdminLogin() {
 
 checkAdminLogin();
 window.addEventListener("hashchange", checkAdminLogin);
+if (window.location.hash === "#admin") {function checkAdminLogin() {
+  if (window.location.hash === "#admin") {
 
+    let password = prompt("Enter Admin Password:");
+
+    if (password === "khalifa123") {
+      alert("Welcome Admin 👑");
+      document.body.style.border = "5px solid red";
+    } else {
+      alert("Wrong password!");
+      window.location.hash = "";
+    }
+  }
+}
+
+checkAdminLogin();
+window.addEventListener("hashchange", checkAdminLogin);
+
+  
