@@ -16,16 +16,17 @@ input[type="text"] { flex: 1; padding: 10px; border-radius: 5px; border: none; o
 button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; background: white; color: black; font-weight: bold; }
 .flash { position: absolute; top:0; left:0; width:100%; height:100%; background:white; opacity:0; pointer-events:none; }
 .nuke-img { width:100px; margin: 10px auto; display:block; }
+.hidden { display:none; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 </head>
 <body>
 <div class="sidebar">
   <div class="logo">Global Chat</div>
-  <button id="clearBtn" style="display:none;">Clear Chat (Admin)</button>
+  <button id="clearBtn" class="hidden">Clear Chat (Admin)</button>
 </div>
 <div class="chat-container" id="chatContainer"></div>
-<div class="input-container">
+<div class="input-container" id="inputContainer">
   <input type="text" id="messageInput" placeholder="Type a message...">
   <button id="sendBtn">Send</button>
 </div>
@@ -36,66 +37,26 @@ const SUPABASE_URL = 'YOUR_SUPABASE_URL';
 const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
 const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// ===== User & URL Setup =====
 const urlParams = new URLSearchParams(window.location.search);
-const username = prompt("Enter your name:") || "Guest";
-const adminLink = urlParams.get('admin');
-const isAdmin = adminLink === 'true';
-
-if(isAdmin) document.getElementById('clearBtn').style.display = 'block';
-
-// Track muted and banned users
-let mutedUsers = {};
-let bannedUsers = {};
+const username = urlParams.get('user') || prompt("Enter your name:") || "Guest";
+const isAdmin = urlParams.get('admin') === 'true';
+const isCreator = urlParams.get('creator') === 'true';
 
 const chatContainer = document.getElementById('chatContainer');
 const messageInput = document.getElementById('messageInput');
 const sendBtn = document.getElementById('sendBtn');
 const clearBtn = document.getElementById('clearBtn');
+const inputContainer = document.getElementById('inputContainer');
 const flash = document.getElementById('flash');
 
-async function sendMessage(msg) {
-  if(!msg) return;
+if(isAdmin) clearBtn.classList.remove('hidden');
 
-  // Check if user is muted or banned
-  if(bannedUsers[username]) { alert("You are banned!"); return; }
-  if(mutedUsers[username] && mutedUsers[username] > Date.now()) { alert("You are muted!"); return; }
+// ===== Track banned and muted users =====
+let bannedUsers = {};
+let mutedUsers = {};
 
-  // Admin commands
-  if(msg.startsWith('/')) {
-    const parts = msg.split(' ');
-    const cmd = parts[0];
-    if(!isAdmin) return alert("Only admins can use commands!");
-    
-    if(cmd === '/nuke') {
-      displayNuke();
-      return;
-    }
-
-    if(cmd === '/ban') {
-      const target = parts[1];
-      if(!target) return alert("Specify a username to ban");
-      if(target === 'CREATOR_NAME') return alert("Cannot ban the creator!");
-      bannedUsers[target] = true;
-      addMessage(`ADMIN: ${target} has been banned!`, true);
-      return;
-    }
-
-    if(cmd === '/mute') {
-      const target = parts[1];
-      let time = parseInt(parts[2]) || 0;
-      if(!target) return alert("Specify a username to mute");
-      if(target === 'CREATOR_NAME') return alert("Cannot mute the creator!");
-      if(time > 86400) time = 86400; // max 24h
-      mutedUsers[target] = Date.now() + time*1000;
-      addMessage(`ADMIN: ${target} has been muted for ${time} seconds`, true);
-      return;
-    }
-  }
-
-  await supabase.from('messages').insert([{ user: username, message: msg }]);
-}
-
-// ===== Display Messages =====
+// ===== Helper to display messages =====
 function addMessage(msg, isAdminMsg=false) {
   const div = document.createElement('div');
   div.classList.add('message');
@@ -105,12 +66,70 @@ function addMessage(msg, isAdminMsg=false) {
   chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
+// ===== Nuke command =====
+function displayNuke() {
+  addMessage(`<strong>NUKE DEPLOYED!</strong> <img src="https://i.imgur.com/2bXKk3D.png" class="nuke-img">`, true);
+  flash.style.opacity = '0.3';
+  setTimeout(()=>{ flash.style.opacity='0'; }, 3000);
+}
+
+// ===== Send Messages / Commands =====
+async function sendMessage(msg) {
+  if(!msg) return;
+
+  // Check if banned
+  if(bannedUsers[username]) {
+    alert("You are banned and cannot see the chat!");
+    chatContainer.innerHTML = "<h2 style='text-align:center;color:red'>You are banned!</h2>";
+    inputContainer.classList.add('hidden');
+    return;
+  }
+
+  // Check if muted
+  if(mutedUsers[username] && mutedUsers[username] > Date.now()) { 
+    alert("You are muted!"); 
+    return; 
+  }
+
+  // Handle commands
+  if(msg.startsWith('/')) {
+    const parts = msg.split(' ');
+    const cmd = parts[0];
+
+    if(!isAdmin) return alert("Only admins can use commands!");
+
+    if(cmd === '/nuke') return displayNuke();
+
+    if(cmd === '/ban') {
+      const target = parts[1];
+      if(!target) return alert("Specify a username to ban");
+      if(target === username && isCreator) return alert("Cannot ban the creator!");
+      bannedUsers[target] = true;
+      addMessage(`ADMIN: ${target} has been banned!`, true);
+      return;
+    }
+
+    if(cmd === '/mute') {
+      const target = parts[1];
+      let time = parseInt(parts[2]) || 0;
+      if(!target) return alert("Specify a username to mute");
+      if(target === username && isCreator) return alert("Cannot mute the creator!");
+      if(time > 86400) time = 86400;
+      mutedUsers[target] = Date.now() + time*1000;
+      addMessage(`ADMIN: ${target} has been muted for ${time} seconds`, true);
+      return;
+    }
+  }
+
+  await supabase.from('messages').insert([{ user: username, message: msg }]);
+}
+
+// ===== Load and listen to messages =====
 async function loadMessages() {
   const { data } = await supabase.from('messages').select('*').order('id');
   chatContainer.innerHTML = '';
   data.forEach(msg => addMessage(`${msg.user}: ${msg.message}`));
 }
-
 loadMessages();
 
 supabase.from('messages').on('INSERT', payload => {
@@ -118,8 +137,9 @@ supabase.from('messages').on('INSERT', payload => {
   addMessage(`${msg.user}: ${msg.message}`);
 }).subscribe();
 
-sendBtn.addEventListener('click', () => sendMessage(messageInput.value).then(() => messageInput.value=''));
-messageInput.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(messageInput.value).then(() => messageInput.value=''); });
+// ===== Event listeners =====
+sendBtn.addEventListener('click', () => sendMessage(messageInput.value).then(()=>messageInput.value=''));
+messageInput.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(messageInput.value).then(()=>messageInput.value=''); });
 
 // Clear chat
 clearBtn.addEventListener('click', async () => {
@@ -127,13 +147,6 @@ clearBtn.addEventListener('click', async () => {
   await supabase.from('messages').delete().neq('id',0);
   chatContainer.innerHTML = '';
 });
-
-// ===== Nuke Command =====
-function displayNuke() {
-  addMessage(`<strong>NUKE DEPLOYED!</strong> <img src="https://i.imgur.com/2bXKk3D.png" class="nuke-img">`, true);
-  flash.style.opacity = '0.3';
-  setTimeout(()=>{ flash.style.opacity='0'; }, 3000);
-}
 </script>
 </body>
 </html>
