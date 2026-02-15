@@ -1,213 +1,222 @@
-// ========================
-// SETTINGS
-// ========================
-let currentRoom = "global";
-let role = "user"; // user | admin | creator
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Ultimate Chat</title>
 
-let bannedUsers = JSON.parse(localStorage.getItem("bannedUsers")) || [];
-let mutedUsers = JSON.parse(localStorage.getItem("mutedUsers")) || [];
-let adminUsers = JSON.parse(localStorage.getItem("adminUsers")) || [];
-
-// ========================
-// SECRET ACCESS LINKS
-// ========================
-function checkAccess(){
-  const params = new URLSearchParams(window.location.search);
-
-  // CREATOR LINK
-  if(params.get("access") === "khalifaowner"){
-    let password = prompt("Enter Creator Password 👑");
-    if(password === "creator123"){
-      role = "creator";
-      alert("👑 Creator Mode Activated");
-    } else {
-      alert("Wrong Password ❌");
-    }
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  // ADMIN LINK
-  if(params.get("access") === "khalifaadmin"){
-    let password = prompt("Enter Admin Password 🔥");
-    if(password === "admin2"){
-      role = "admin";
-      alert("🔥 Admin Mode Activated");
-    } else {
-      alert("Wrong Password ❌");
-    }
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-}
-checkAccess();
-
-// ========================
-// BAD WORD FILTER
-// ========================
-const badWords = [
-  "fuck","fucker","fucking",
-  "shit","bitch",
-  "asshole","dick",
-  "pussy","bastard"
-];
-
-function filterMessage(text){
-  let filtered = text;
-  badWords.forEach(word=>{
-    const regex = new RegExp("\\b"+word+"\\b","gi");
-    filtered = filtered.replace(regex,"****");
-  });
-  return filtered;
+<style>
+body{
+  background:black;
+  color:white;
+  font-family:Arial;
 }
 
-// ========================
-// ROOMS
-// ========================
-const rooms = {
+header{
+  background:#111;
+  padding:10px;
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  color:red;
+}
+
+#rooms button{
+  background:#222;
+  color:white;
+  border:1px solid red;
+  padding:5px 10px;
+  margin:5px;
+  cursor:pointer;
+}
+
+#chat{
+  height:300px;
+  overflow:auto;
+  border:1px solid red;
+  padding:10px;
+  margin-top:10px;
+  background:#111;
+}
+
+input,button{
+  padding:6px;
+  margin:5px;
+}
+
+.creator{
+  color:white;
+  font-weight:bold;
+}
+
+.admin{
+  color:red;
+  font-weight:bold;
+}
+
+.system{
+  color:gray;
+}
+</style>
+</head>
+
+<body>
+
+<header>🔥 Ultimate Global Chat 🔥</header>
+
+<div id="rooms">
+<button onclick="switchRoom('global')">🌍 Global</button>
+<button onclick="switchRoom('boys')">🔵 Boys</button>
+<button onclick="switchRoom('girls')">🔴 Girls</button>
+</div>
+
+<input id="username" placeholder="Username">
+<br>
+<div id="chat"></div>
+<br>
+<input id="messageInput" placeholder="Type message">
+<button onclick="sendMessage()">Send</button>
+
+<script>
+
+let rooms = {
   global:[],
   boys:[],
   girls:[]
 };
 
-function switchRoom(room){
-  currentRoom = room;
-  renderMessages();
+let currentRoom="global";
+
+let bannedUsers = JSON.parse(localStorage.getItem("bannedUsers")) || [];
+let mutedUsers = JSON.parse(localStorage.getItem("mutedUsers")) || [];
+
+let role="user";
+
+
+// 🔐 LINK ROLE CHECK
+if(window.location.href.includes("@creator")){
+  let pass=prompt("Creator Password?");
+  if(pass==="creator2"){
+    role="creator";
+    alert("👑 Creator Mode Activated");
+  }
+}
+else if(window.location.href.includes("@admin")){
+  let pass=prompt("Admin Password?");
+  if(pass==="admin2"){
+    role="admin";
+    alert("⚡ Admin Mode Activated");
+  }
 }
 
-// ========================
+
+// 🚫 BAD WORD FILTER
+const badWords = ["fuck","shit","ass","bitch","fucker","motherfucker"];
+
+function filterText(text){
+  let clean=text;
+  badWords.forEach(word=>{
+    let regex=new RegExp(word,"gi");
+    clean=clean.replace(regex,"****");
+  });
+  return clean;
+}
+
+
+// SWITCH ROOM
+function switchRoom(room){
+  currentRoom=room;
+  render();
+}
+
+
 // SEND MESSAGE
-// ========================
 function sendMessage(){
+  let user=document.getElementById("username").value.trim();
+  let msg=document.getElementById("messageInput").value.trim();
+  if(!user || !msg) return;
 
-  const username = document.getElementById("username").value || "Guest";
-  let message = document.getElementById("messageInput").value.trim();
-  if(!message) return;
-
-  // BAN CHECK
-  if(bannedUsers.includes(username)){
-    alert("You are banned 🚫");
-    document.getElementById("messageInput").value="";
+  if(bannedUsers.includes(user)){
+    alert("You are banned.");
     return;
   }
 
-  // MUTE CHECK
-  if(mutedUsers.includes(username)){
-    alert("You are muted 🔇");
-    document.getElementById("messageInput").value="";
+  if(mutedUsers.includes(user)){
+    alert("You are muted.");
     return;
   }
 
-  // ========================
   // COMMANDS
-  // ========================
-  if(role === "admin" || role === "creator"){
-
-    // BAN
-    if(message.startsWith("/ban ")){
-      let target = message.split(" ")[1];
-
-      if(role === "admin"){
-        if(adminUsers.includes(target)){
-          alert("Admins cannot ban other admins ❌");
-          return;
-        }
-        alert("Admins cannot ban the creator 👑");
-        return;
-      }
-
-      // Creator can ban anyone except self
-      if(target === username){
-        alert("You cannot ban yourself 👑");
-        return;
-      }
-
-      if(!bannedUsers.includes(target)){
-        bannedUsers.push(target);
-        localStorage.setItem("bannedUsers", JSON.stringify(bannedUsers));
-      }
-
-      alert(target + " banned 🚫");
+  if(msg.startsWith("/ban ") && role!=="user"){
+    let target=msg.split(" ")[1];
+    if(role==="admin" && target==="creator"){
+      alert("Admins cannot ban creator.");
       return;
     }
-
-    // MUTE
-    if(message.startsWith("/mute ")){
-      let target = message.split(" ")[1];
-
-      if(role === "admin"){
-        if(adminUsers.includes(target)){
-          alert("Admins cannot mute other admins ❌");
-          return;
-        }
-        alert("Admins cannot mute the creator 👑");
-        return;
-      }
-
-      if(!mutedUsers.includes(target)){
-        mutedUsers.push(target);
-        localStorage.setItem("mutedUsers", JSON.stringify(mutedUsers));
-      }
-
-      alert(target + " muted 🔇");
-      return;
+    if(role==="creator"){
+      bannedUsers.push(target);
+      localStorage.setItem("bannedUsers",JSON.stringify(bannedUsers));
+      alert(target+" banned.");
     }
-
-    // PROMOTE (Creator Only)
-    if(role === "creator" && message.startsWith("/promote ")){
-      let target = message.split(" ")[1];
-      if(!adminUsers.includes(target)){
-        adminUsers.push(target);
-        localStorage.setItem("adminUsers", JSON.stringify(adminUsers));
-        alert(target + " promoted to Admin 🔥");
-      }
-      return;
+    else if(role==="admin"){
+      bannedUsers.push(target);
+      localStorage.setItem("bannedUsers",JSON.stringify(bannedUsers));
+      alert(target+" banned.");
     }
-
-    // CLEAR ROOM
-    if(message === "/clear"){
-      rooms[currentRoom] = [];
-      renderMessages();
-      return;
-    }
+    return;
   }
 
-  message = filterMessage(message);
+  if(msg.startsWith("/mute ") && role!=="user"){
+    let target=msg.split(" ")[1];
+    if(role==="admin" && target==="creator"){
+      alert("Admins cannot mute creator.");
+      return;
+    }
+    mutedUsers.push(target);
+    localStorage.setItem("mutedUsers",JSON.stringify(mutedUsers));
+    alert(target+" muted.");
+    return;
+  }
+
+  msg=filterText(msg);
 
   rooms[currentRoom].push({
-    user:username,
-    text:message,
+    user:user,
+    text:msg,
     role:role
   });
 
   document.getElementById("messageInput").value="";
-  renderMessages();
+  render();
 }
 
-// ========================
+
 // RENDER
-// ========================
-function renderMessages(){
+function render(){
+  let chat=document.getElementById("chat");
+  chat.innerHTML="";
 
-  const chatDiv = document.getElementById("chat");
-  chatDiv.innerHTML="";
+  rooms[currentRoom].forEach(m=>{
+    let div=document.createElement("div");
 
-  rooms[currentRoom].forEach(msg=>{
-    const div = document.createElement("div");
-
-    if(msg.role === "creator"){
-      div.style.color = "white";
-      div.style.fontWeight = "bold";
-      div.innerText = "👑 " + msg.user + ": " + msg.text;
+    if(m.role==="creator"){
+      div.className="creator";
+      div.innerHTML="👑 "+m.user+": "+m.text;
     }
-    else if(msg.role === "admin"){
-      div.style.color = "red";
-      div.innerText = "🔥 ADMIN " + msg.user + ": " + msg.text;
+    else if(m.role==="admin"){
+      div.className="admin";
+      div.innerHTML="⚡ "+m.user+": "+m.text;
     }
     else{
-      div.innerText = msg.user + ": " + msg.text;
+      div.innerHTML=m.user+": "+m.text;
     }
 
-    chatDiv.appendChild(div);
+    chat.appendChild(div);
   });
 
-  chatDiv.scrollTop = chatDiv.scrollHeight;
+  chat.scrollTop=chat.scrollHeight;
 }
+
+</script>
+
+</body>
+</html>
