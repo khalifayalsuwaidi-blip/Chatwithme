@@ -1,224 +1,139 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Chat With Me</title>
-
+<title>Global Chat - Admin Commands</title>
 <style>
-* { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  font-family: 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #141e30, #243b55);
-  color: white;
-  height: 100vh;
-  display: flex;
-}
-
-.sidebar {
-  width: 250px;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(15px);
-  padding: 20px;
-}
-
-.logo {
-  font-size: 22px;
-  font-weight: bold;
-  margin-bottom: 20px;
-}
-
-.clear-btn {
-  margin-top: 20px;
-  padding: 10px;
-  background: #ff4444;
-  border-radius: 8px;
-  cursor: pointer;
-  display: none;
-  text-align: center;
-}
-
-.chat-container {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.header {
-  padding: 20px;
-  font-size: 20px;
-  font-weight: bold;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-}
-
-.messages {
-  flex: 1;
-  padding: 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.message {
-  padding: 12px 16px;
-  border-radius: 15px;
-  max-width: 60%;
-  position: relative;
-}
-
-.creator {
-  background: gold;
-  color: black;
-  align-self: flex-end;
-}
-
-.admin {
-  background: #ff4444;
-  align-self: flex-end;
-}
-
-.user {
-  background: rgba(255,255,255,0.1);
-  align-self: flex-start;
-}
-
-.delete-btn {
-  position: absolute;
-  right: -25px;
-  top: 0;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.input-area {
-  display: flex;
-  padding: 20px;
-  background: rgba(0,0,0,0.4);
-}
-
-.input-area input {
-  flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  border: none;
-  outline: none;
-}
-
-.input-area button {
-  margin-left: 10px;
-  padding: 12px 20px;
-  border-radius: 10px;
-  border: none;
-  background: #5865f2;
-  color: white;
-  cursor: pointer;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+body { height: 100vh; display: flex; background: black; color: white; overflow: hidden; }
+.sidebar { width: 250px; background: #111; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
+.logo { font-size: 22px; font-weight: bold; margin-bottom: 20px; }
+.chat-container { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; }
+.message { margin-bottom: 10px; }
+.admin-message { color: #ff4444; }
+.input-container { display: flex; gap: 10px; margin-top: auto; }
+input[type="text"] { flex: 1; padding: 10px; border-radius: 5px; border: none; outline: none; }
+button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; background: white; color: black; font-weight: bold; }
+.flash { position: absolute; top:0; left:0; width:100%; height:100%; background:white; opacity:0; pointer-events:none; }
+.nuke-img { width:100px; margin: 10px auto; display:block; }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 </head>
-
 <body>
-
 <div class="sidebar">
-  <div class="logo">💬 Chat With Me</div>
-  <div class="clear-btn" id="clearChat" onclick="clearChat()">🗑 Clear Chat</div>
+  <div class="logo">Global Chat</div>
+  <button id="clearBtn" style="display:none;">Clear Chat (Admin)</button>
 </div>
-
-<div class="chat-container">
-  <div class="header">Global Room</div>
-  <div class="messages" id="messages"></div>
-
-  <div class="input-area">
-    <input type="text" id="username" placeholder="Your name">
-    <input type="text" id="messageInput" placeholder="Type a message...">
-    <button onclick="sendMessage()">Send</button>
-  </div>
+<div class="chat-container" id="chatContainer"></div>
+<div class="input-container">
+  <input type="text" id="messageInput" placeholder="Type a message...">
+  <button id="sendBtn">Send</button>
 </div>
+<div class="flash" id="flash"></div>
 
 <script>
-let role = "user";
-let messages = [];
+const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+const SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const CREATOR_KEY = "creator2026";
-const ADMIN_KEY = "admin2026";
+const urlParams = new URLSearchParams(window.location.search);
+const username = prompt("Enter your name:") || "Guest";
+const adminLink = urlParams.get('admin');
+const isAdmin = adminLink === 'true';
 
-/* 🔐 Detect Role From URL */
-function checkRoleFromURL(){
-  const params = new URLSearchParams(window.location.search);
-  const roleParam = params.get("role");
-  const key = params.get("key");
+if(isAdmin) document.getElementById('clearBtn').style.display = 'block';
 
-  if(roleParam === "creator" && key === CREATOR_KEY){
-    role = "creator";
-    alert("👑 CREATOR MODE");
+// Track muted and banned users
+let mutedUsers = {};
+let bannedUsers = {};
+
+const chatContainer = document.getElementById('chatContainer');
+const messageInput = document.getElementById('messageInput');
+const sendBtn = document.getElementById('sendBtn');
+const clearBtn = document.getElementById('clearBtn');
+const flash = document.getElementById('flash');
+
+async function sendMessage(msg) {
+  if(!msg) return;
+
+  // Check if user is muted or banned
+  if(bannedUsers[username]) { alert("You are banned!"); return; }
+  if(mutedUsers[username] && mutedUsers[username] > Date.now()) { alert("You are muted!"); return; }
+
+  // Admin commands
+  if(msg.startsWith('/')) {
+    const parts = msg.split(' ');
+    const cmd = parts[0];
+    if(!isAdmin) return alert("Only admins can use commands!");
+    
+    if(cmd === '/nuke') {
+      displayNuke();
+      return;
+    }
+
+    if(cmd === '/ban') {
+      const target = parts[1];
+      if(!target) return alert("Specify a username to ban");
+      if(target === 'CREATOR_NAME') return alert("Cannot ban the creator!");
+      bannedUsers[target] = true;
+      addMessage(`ADMIN: ${target} has been banned!`, true);
+      return;
+    }
+
+    if(cmd === '/mute') {
+      const target = parts[1];
+      let time = parseInt(parts[2]) || 0;
+      if(!target) return alert("Specify a username to mute");
+      if(target === 'CREATOR_NAME') return alert("Cannot mute the creator!");
+      if(time > 86400) time = 86400; // max 24h
+      mutedUsers[target] = Date.now() + time*1000;
+      addMessage(`ADMIN: ${target} has been muted for ${time} seconds`, true);
+      return;
+    }
   }
-  else if(roleParam === "admin" && key === ADMIN_KEY){
-    role = "admin";
-    alert("⚡ ADMIN MODE");
-  }
 
-  if(role === "admin" || role === "creator"){
-    document.getElementById("clearChat").style.display = "block";
-  }
+  await supabase.from('messages').insert([{ user: username, message: msg }]);
 }
 
-checkRoleFromURL();
-
-function sendMessage(){
-  let username = document.getElementById("username").value || "Guest";
-  let text = document.getElementById("messageInput").value.trim();
-  if(text === "") return;
-
-  messages.push({user: username, text: text, role: role});
-  document.getElementById("messageInput").value = "";
-  render();
+// ===== Display Messages =====
+function addMessage(msg, isAdminMsg=false) {
+  const div = document.createElement('div');
+  div.classList.add('message');
+  if(isAdminMsg) div.classList.add('admin-message');
+  div.innerHTML = msg;
+  chatContainer.appendChild(div);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
-function render(){
-  const container = document.getElementById("messages");
-  container.innerHTML = "";
-
-  messages.forEach((msg, index)=>{
-    let div = document.createElement("div");
-    div.classList.add("message");
-
-    if(msg.role === "creator"){
-      div.classList.add("creator");
-      div.innerText = "👑 " + msg.user + ": " + msg.text;
-    }
-    else if(msg.role === "admin"){
-      div.classList.add("admin");
-      div.innerText = "⚡ " + msg.user + ": " + msg.text;
-    }
-    else{
-      div.classList.add("user");
-      div.innerText = msg.user + ": " + msg.text;
-    }
-
-    if(role === "admin" || role === "creator"){
-      let del = document.createElement("span");
-      del.innerText = " ❌";
-      del.className = "delete-btn";
-      del.onclick = () => {
-        messages.splice(index,1);
-        render();
-      };
-      div.appendChild(del);
-    }
-
-    container.appendChild(div);
-  });
-
-  container.scrollTop = container.scrollHeight;
+async function loadMessages() {
+  const { data } = await supabase.from('messages').select('*').order('id');
+  chatContainer.innerHTML = '';
+  data.forEach(msg => addMessage(`${msg.user}: ${msg.message}`));
 }
 
-function clearChat(){
-  messages = [];
-  render();
+loadMessages();
+
+supabase.from('messages').on('INSERT', payload => {
+  const msg = payload.new;
+  addMessage(`${msg.user}: ${msg.message}`);
+}).subscribe();
+
+sendBtn.addEventListener('click', () => sendMessage(messageInput.value).then(() => messageInput.value=''));
+messageInput.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(messageInput.value).then(() => messageInput.value=''); });
+
+// Clear chat
+clearBtn.addEventListener('click', async () => {
+  if(!isAdmin) return;
+  await supabase.from('messages').delete().neq('id',0);
+  chatContainer.innerHTML = '';
+});
+
+// ===== Nuke Command =====
+function displayNuke() {
+  addMessage(`<strong>NUKE DEPLOYED!</strong> <img src="https://i.imgur.com/2bXKk3D.png" class="nuke-img">`, true);
+  flash.style.opacity = '0.3';
+  setTimeout(()=>{ flash.style.opacity='0'; }, 3000);
 }
 </script>
-
 </body>
 </html>
