@@ -1,496 +1,213 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ChatWithKhalifa.com</title>
-  <style>
-    :root{
-      --bg:#0b1020;
-      --panel:#121a33;
-      --panel2:#0f1730;
-      --text:#e9ecff;
-      --muted:#aab2ff;
-      --border:rgba(255,255,255,.12);
-      --accent:#4f7dff;
-      --good:#38d39f;
-      --bad:#ff5a7a;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      background:radial-gradient(1200px 800px at 20% 0%, #17245a 0%, var(--bg) 55%);
-      color:var(--text);
-    }
-    header{
-      position:sticky; top:0;
-      background:rgba(18,26,51,.9);
-      backdrop-filter: blur(10px);
-      border-bottom:1px solid var(--border);
-      padding:14px 16px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-    .brand{font-weight:800; letter-spacing:.3px}
-    .pill{
-      font-size:12px;
-      color:var(--muted);
-      border:1px solid var(--border);
-      padding:6px 10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.04);
-    }
+// ========================
+// SETTINGS
+// ========================
+let currentRoom = "global";
+let role = "user"; // user | admin | creator
 
-    .wrap{
-      max-width:980px;
-      margin:18px auto;
-      padding:0 14px 24px;
-      display:grid;
-      grid-template-columns: 260px 1fr;
-      gap:14px;
-    }
-    @media (max-width: 800px){
-      .wrap{grid-template-columns:1fr}
-    }
+let bannedUsers = JSON.parse(localStorage.getItem("bannedUsers")) || [];
+let mutedUsers = JSON.parse(localStorage.getItem("mutedUsers")) || [];
+let adminUsers = JSON.parse(localStorage.getItem("adminUsers")) || [];
 
-    .card{
-      background:rgba(18,26,51,.75);
-      border:1px solid var(--border);
-      border-radius:16px;
-      overflow:hidden;
-    }
-    .card h3{
-      margin:0;
-      padding:12px 14px;
-      font-size:14px;
-      color:var(--muted);
-      border-bottom:1px solid var(--border);
-      background:rgba(255,255,255,.03);
-    }
-    .card .body{padding:12px 14px}
+// ========================
+// SECRET ACCESS LINKS
+// ========================
+function checkAccess(){
+  const params = new URLSearchParams(window.location.search);
 
-    .list{display:flex; flex-direction:column; gap:8px}
-    .person{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.03);
+  // CREATOR LINK
+  if(params.get("access") === "khalifaowner"){
+    let password = prompt("Enter Creator Password 👑");
+    if(password === "creator123"){
+      role = "creator";
+      alert("👑 Creator Mode Activated");
+    } else {
+      alert("Wrong Password ❌");
     }
-    .person b{font-size:13px}
-    .person small{color:var(--muted)}
-    .btn{
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.06);
-      color:var(--text);
-      padding:8px 10px;
-      border-radius:12px;
-      cursor:pointer;
-      font-weight:700;
-    }
-    .btn.primary{
-      background:linear-gradient(135deg,var(--accent),#7b5bff);
-      border-color:transparent;
-    }
-    .btn.good{background:rgba(56,211,159,.14); border-color:rgba(56,211,159,.35)}
-    .btn.bad{background:rgba(255,90,122,.14); border-color:rgba(255,90,122,.35)}
-    .row{display:flex; gap:8px; flex-wrap:wrap}
-
-    /* Chat */
-    .chat{
-      display:flex;
-      flex-direction:column;
-      height:70vh;
-      min-height:480px;
-    }
-    .chatArea{
-      flex:1;
-      overflow:auto;
-      padding:14px;
-      background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00));
-    }
-    .msg{
-      max-width:75%;
-      margin:8px 0;
-      padding:10px 12px;
-      border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(255,255,255,.04);
-      word-wrap:break-word;
-    }
-    .me{margin-left:auto; background:rgba(79,125,255,.18); border-color:rgba(79,125,255,.35)}
-    .sys{max-width:100%; color:var(--muted); font-size:12px; border:0; background:transparent}
-    .composer{
-      display:flex; gap:10px;
-      padding:12px;
-      border-top:1px solid var(--border);
-      background:rgba(255,255,255,.03);
-    }
-    textarea{
-      flex:1;
-      resize:none;
-      min-height:46px;
-      max-height:140px;
-      border-radius:14px;
-      border:1px solid var(--border);
-      background:rgba(11,16,32,.65);
-      color:var(--text);
-      padding:12px 12px;
-      outline:none;
-      font-size:14px;
-    }
-    .hint{padding:0 14px 12px; color:var(--muted); font-size:12px}
-    .tag{
-      font-size:11px; color:var(--muted);
-      border:1px solid var(--border);
-      padding:3px 8px; border-radius:999px;
-      background:rgba(255,255,255,.03);
-    }
-
-    /* Admin */
-    #adminPanel{display:none}
-    .adminBox{
-      margin:12px 14px;
-      border:1px dashed rgba(255,255,255,.22);
-      border-radius:14px;
-      padding:12px;
-      background:rgba(255,255,255,.03);
-    }
-    .adminBox b{color:var(--good)}
-    .input{
-      width:100%;
-      padding:10px 12px;
-      border-radius:12px;
-      border:1px solid var(--border);
-      background:rgba(11,16,32,.65);
-      color:var(--text);
-      outline:none;
-      font-size:14px;
-      margin-top:8px;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="brand">ChatWithKhalifa.com <span class="tag">lite</span></div>
-    <div class="pill" id="status">Offline-ready (local)</div>
-  </header>
-
-  <main class="wrap">
-    <!-- Left: People -->
-    <section class="card">
-      <h3>People</h3>
-      <div class="body">
-        <div class="row" style="margin-bottom:10px">
-          <button class="btn primary" onclick="addPerson()">+ Add</button>
-          <button class="btn" onclick="resetAll()">Reset</button>
-        </div>
-
-        <div class="list" id="peopleList"></div>
-
-        <div id="adminPanel" class="adminBox">
-          <b>Admin mode ON</b>
-          <div style="height:8px"></div>
-          <div class="row">
-            <button class="btn bad" onclick="clearChat()">Clear chat</button>
-            <button class="btn" onclick="logoutAdmin()">Exit admin</button>
-          </div>
-          <input class="input" id="adminNote" placeholder="Admin note (saved on this device)..." />
-          <button class="btn good" style="margin-top:8px" onclick="saveAdminNote()">Save note</button>
-        </div>
-
-        <div style="height:10px"></div>
-        <div class="hint">
-          This version works with low internet because it saves messages on your device (localStorage).
-          <br/>Admin link: add <b>#admin</b> to the end of the URL.
-        </div>
-      </div>
-    </section>
-
-    <!-- Right: Chat -->
-    <section class="card chat">
-      <h3 id="chatTitle">Chat</h3>
-      <div class="chatArea" id="chatArea"></div>
-      <div class="composer">
-        <textarea id="msg" placeholder="Type a message… or paste a GIF link (https://...gif)"></textarea>
-        <button class="btn primary" onclick="send()">Send</button>
-      </div>
-    </section>
-  </main>
-
-<script>
-  // --------- Simple local chat (no firebase) ----------
-  const LS_PEOPLE = "cwk_people_v1";
-  const LS_CHAT = "cwk_chat_v1";
-  const LS_ADMIN = "cwk_admin_v1";
-  const ADMIN_PASSWORD = "khalifa11"; // CHANGE THIS PASSWORD
-
-  let people = JSON.parse(localStorage.getItem(LS_PEOPLE) || "[]");
-  let chats = JSON.parse(localStorage.getItem(LS_CHAT) || "{}");
-  let selected = people[0]?.id || null;
-
-  function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
-
-  function save(){
-    localStorage.setItem(LS_PEOPLE, JSON.stringify(people));
-    localStorage.setItem(LS_CHAT, JSON.stringify(chats));
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
 
-  function sys(text){
-    const area = document.getElementById("chatArea");
-    const div = document.createElement("div");
-    div.className = "msg sys";
-    div.textContent = text;
-    area.appendChild(div);
-    area.scrollTop = area.scrollHeight;
-  }
-
-  function renderPeople(){
-    const list = document.getElementById("peopleList");
-    list.innerHTML = "";
-    if(people.length === 0){
-      sys("No people yet. Add someone on the left.");
-      return;
+  // ADMIN LINK
+  if(params.get("access") === "khalifaadmin"){
+    let password = prompt("Enter Admin Password 🔥");
+    if(password === "admin2"){
+      role = "admin";
+      alert("🔥 Admin Mode Activated");
+    } else {
+      alert("Wrong Password ❌");
     }
-    people.forEach(p=>{
-      const row = document.createElement("div");
-      row.className = "person";
-      row.style.outline = (p.id === selected) ? "2px solid rgba(79,125,255,.55)" : "none";
-
-      const left = document.createElement("div");
-      left.innerHTML = `<b>${escapeHtml(p.name)}</b><br><small>@${escapeHtml(p.handle)}</small>`;
-
-      const right = document.createElement("div");
-      right.className = "row";
-      const open = document.createElement("button");
-      open.className = "btn";
-      open.textContent = "Open";
-      open.onclick = ()=>{ selected = p.id; renderAll(); };
-
-      const del = document.createElement("button");
-      del.className = "btn bad";
-      del.textContent = "Del";
-      del.onclick = ()=>{ deletePerson(p.id); };
-
-      right.appendChild(open);
-      right.appendChild(del);
-
-      row.appendChild(left);
-      row.appendChild(right);
-      list.appendChild(row);
-    });
+    window.history.replaceState({}, document.title, window.location.pathname);
   }
+}
+checkAccess();
 
-  function renderChat(){
-    const title = document.getElementById("chatTitle");
-    const area = document.getElementById("chatArea");
-    area.innerHTML = "";
+// ========================
+// BAD WORD FILTER
+// ========================
+const badWords = [
+  "fuck","fucker","fucking",
+  "shit","bitch",
+  "asshole","dick",
+  "pussy","bastard"
+];
 
-    const person = people.find(p=>p.id===selected);
-    title.textContent = person ? `Chat with ${person.name}` : "Chat";
-
-    const msgs = chats[selected] || [];
-    if(!person){
-      sys("Pick a person from the left.");
-      return;
-    }
-    if(msgs.length === 0){
-      sys("Say hi 👋 (messages are saved on this device)");
-      return;
-    }
-    msgs.forEach(m=>{
-      const div = document.createElement("div");
-      div.className = "msg " + (m.me ? "me" : "");
-      if(isGifUrl(m.text)){
-        div.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${m.me ? "You" : person.name}</div>
-                         <img src="${m.text}" alt="gif" style="max-width:100%;border-radius:12px;border:1px solid var(--border)" loading="lazy">`;
-      } else {
-        div.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:6px">${m.me ? "You" : person.name}</div>
-                         <div>${escapeHtml(m.text)}</div>`;
-      }
-      area.appendChild(div);
-    });
-    area.scrollTop = area.scrollHeight;
-  }
-
-  function renderAll(){
-    renderPeople();
-    renderChat();
-    renderAdminPanel();
-  }
-
-  function addPerson(){
-    const name = prompt("Name?");
-    if(!name) return;
-    const handle = prompt("Username (no spaces)?") || name.toLowerCase().replace(/\s+/g,"");
-    const id = uid();
-    people.push({id, name, handle});
-    chats[id] = chats[id] || [];
-    selected = id;
-    save();
-    renderAll();
-  }
-
-  function deletePerson(id){
-    if(!confirm("Delete this person and their chat?")) return;
-    people = people.filter(p=>p.id!==id);
-    delete chats[id];
-    if(selected === id) selected = people[0]?.id || null;
-    save();
-    renderAll();
-  }
-
-  function send(){
-    const ta = document.getElementById("msg");
-    const text = ta.value.trim();
-    if(!text) return;
-    if(!selected){
-      alert("Pick a person first.");
-      return;
-    }
-    chats[selected] = chats[selected] || [];
-    chats[selected].push({me:true, text, t:Date.now()});
-
-    // Fake reply (offline demo)
-    setTimeout(()=>{
-      const p = people.find(x=>x.id===selected);
-      chats[selected].push({me:false, text:"Got it ✅", t:Date.now()});
-      save();
-      renderChat();
-    }, 250);
-
-    ta.value = "";
-    save();
-    renderChat();
-  }
-
-  function clearChat(){
-    if(!selected) return;
-    if(!confirm("Clear this chat?")) return;
-    chats[selected] = [];
-    save();
-    renderChat();
-  }
-
-  function resetAll(){
-    if(!confirm("Reset EVERYTHING (people + chats) on this device?")) return;
-    localStorage.removeItem(LS_PEOPLE);
-    localStorage.removeItem(LS_CHAT);
-    localStorage.removeItem(LS_ADMIN);
-    location.reload();
-  }
-
-  // --------- Admin Mode (hidden link #admin) ----------
-  function renderAdminPanel(){
-    const panel = document.getElementById("adminPanel");
-    const isAdmin = localStorage.getItem(LS_ADMIN) === "1";
-    panel.style.display = isAdmin ? "block" : "none";
-
-    const note = document.getElementById("adminNote");
-    note.value = localStorage.getItem("cwk_admin_note") || "";
-  }
-
-  function checkAdminHash(){
-    if(location.hash === "#admin"){
-      const ok = prompt("Admin password?");
-      if(ok === ADMIN_PASSWORD){
-        localStorage.setItem(LS_ADMIN, "1");
-        sys("Admin mode enabled.");
-      } else {
-        alert("Wrong password");
-        location.hash = "";
-      }
-    }
-    renderAdminPanel();
-  }
-
-  function logoutAdmin(){
-    localStorage.removeItem(LS_ADMIN);
-    location.hash = "";
-    renderAdminPanel();
-    sys("Admin mode disabled.");
-  }
-
-  function saveAdminNote(){
-    const note = document.getElementById("adminNote").value || "";
-    localStorage.setItem("cwk_admin_note", note);
-    alert("Saved ✅");
-  }
-
-  // --------- helpers ----------
-  function isGifUrl(s){
-    return /^https?:\/\/.+\.(gif)(\?.*)?$/i.test(s) || (s.includes("giphy.com") || s.includes("tenor.com"));
-  }
-  function escapeHtml(str){
-    return str.replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[m]));
-  }
-
-  // init
-  if(people.length === 0){
-    people = [{id:uid(), name:"Khalifa", handle:"khalifa"}];
-    selected = people[0].id;
-    chats[selected] = [];
-    save();
-  }
-  document.getElementById("msg").addEventListener("keydown",(e)=>{
-    if(e.key==="Enter" && !e.shiftKey){
-      e.preventDefault();
-      send();
-    }
+function filterMessage(text){
+  let filtered = text;
+  badWords.forEach(word=>{
+    const regex = new RegExp("\\b"+word+"\\b","gi");
+    filtered = filtered.replace(regex,"****");
   });
-  window.addEventListener("hashchange", checkAdminHash);
-  checkAdminHash();
-  renderAll();
-// ===== ADMIN LOGIN =====
-if (window.location.hash === "#admin") {
-  let password = prompt("Enter Admin Password:");
-
-  if (password === "khalifa123") {
-    alert("Welcome Admin 👑");
-    document.body.style.border = "5px solid red";
-  } else {
-    alert("Wrong password!");
-    window.location.href = window.location.href.split('#')[0];
-  }
+  return filtered;
 }
-</script>
-if (window.location.hash === "#admin") {function checkAdminLogin() {
-  if (window.location.hash === "#admin") {
 
-    let password = prompt("Enter Admin Password:");
+// ========================
+// ROOMS
+// ========================
+const rooms = {
+  global:[],
+  boys:[],
+  girls:[]
+};
 
-    if (password === "khalifa123") {
-      alert("Welcome Admin 👑");
-      document.body.style.border = "5px solid red";
-    } else {
-      alert("Wrong password!");
-      window.location.hash = "";
+function switchRoom(room){
+  currentRoom = room;
+  renderMessages();
+}
+
+// ========================
+// SEND MESSAGE
+// ========================
+function sendMessage(){
+
+  const username = document.getElementById("username").value || "Guest";
+  let message = document.getElementById("messageInput").value.trim();
+  if(!message) return;
+
+  // BAN CHECK
+  if(bannedUsers.includes(username)){
+    alert("You are banned 🚫");
+    document.getElementById("messageInput").value="";
+    return;
+  }
+
+  // MUTE CHECK
+  if(mutedUsers.includes(username)){
+    alert("You are muted 🔇");
+    document.getElementById("messageInput").value="";
+    return;
+  }
+
+  // ========================
+  // COMMANDS
+  // ========================
+  if(role === "admin" || role === "creator"){
+
+    // BAN
+    if(message.startsWith("/ban ")){
+      let target = message.split(" ")[1];
+
+      if(role === "admin"){
+        if(adminUsers.includes(target)){
+          alert("Admins cannot ban other admins ❌");
+          return;
+        }
+        alert("Admins cannot ban the creator 👑");
+        return;
+      }
+
+      // Creator can ban anyone except self
+      if(target === username){
+        alert("You cannot ban yourself 👑");
+        return;
+      }
+
+      if(!bannedUsers.includes(target)){
+        bannedUsers.push(target);
+        localStorage.setItem("bannedUsers", JSON.stringify(bannedUsers));
+      }
+
+      alert(target + " banned 🚫");
+      return;
+    }
+
+    // MUTE
+    if(message.startsWith("/mute ")){
+      let target = message.split(" ")[1];
+
+      if(role === "admin"){
+        if(adminUsers.includes(target)){
+          alert("Admins cannot mute other admins ❌");
+          return;
+        }
+        alert("Admins cannot mute the creator 👑");
+        return;
+      }
+
+      if(!mutedUsers.includes(target)){
+        mutedUsers.push(target);
+        localStorage.setItem("mutedUsers", JSON.stringify(mutedUsers));
+      }
+
+      alert(target + " muted 🔇");
+      return;
+    }
+
+    // PROMOTE (Creator Only)
+    if(role === "creator" && message.startsWith("/promote ")){
+      let target = message.split(" ")[1];
+      if(!adminUsers.includes(target)){
+        adminUsers.push(target);
+        localStorage.setItem("adminUsers", JSON.stringify(adminUsers));
+        alert(target + " promoted to Admin 🔥");
+      }
+      return;
+    }
+
+    // CLEAR ROOM
+    if(message === "/clear"){
+      rooms[currentRoom] = [];
+      renderMessages();
+      return;
     }
   }
+
+  message = filterMessage(message);
+
+  rooms[currentRoom].push({
+    user:username,
+    text:message,
+    role:role
+  });
+
+  document.getElementById("messageInput").value="";
+  renderMessages();
 }
 
-checkAdminLogin();
-window.addEventListener("hashchange", checkAdminLogin);
-if (window.location.hash === "#admin") {function checkAdminLogin() {
-  if (window.location.hash === "#admin") {
+// ========================
+// RENDER
+// ========================
+function renderMessages(){
 
-    let password = prompt("Enter Admin Password:");
+  const chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML="";
 
-    if (password === "khalifa123") {
-      alert("Welcome Admin 👑");
-      document.body.style.border = "5px solid red";
-    } else {
-      alert("Wrong password!");
-      window.location.hash = "";
+  rooms[currentRoom].forEach(msg=>{
+    const div = document.createElement("div");
+
+    if(msg.role === "creator"){
+      div.style.color = "white";
+      div.style.fontWeight = "bold";
+      div.innerText = "👑 " + msg.user + ": " + msg.text;
     }
-  }
+    else if(msg.role === "admin"){
+      div.style.color = "red";
+      div.innerText = "🔥 ADMIN " + msg.user + ": " + msg.text;
+    }
+    else{
+      div.innerText = msg.user + ": " + msg.text;
+    }
+
+    chatDiv.appendChild(div);
+  });
+
+  chatDiv.scrollTop = chatDiv.scrollHeight;
 }
-
-checkAdminLogin();
-window.addEventListener("hashchange", checkAdminLogin);
-
-  
