@@ -1,221 +1,223 @@
+
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Ultimate Chat</title>
+<title>Chat With Me</title>
 
 <style>
-body{
-  background:black;
-  color:white;
-  font-family:Arial;
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #141e30, #243b55);
+  color: white;
+  height: 100vh;
+  display: flex;
 }
 
-header{
-  background:#111;
-  padding:10px;
-  text-align:center;
-  font-size:20px;
-  font-weight:bold;
-  color:red;
+.sidebar {
+  width: 250px;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(15px);
+  padding: 20px;
 }
 
-#rooms button{
-  background:#222;
-  color:white;
-  border:1px solid red;
-  padding:5px 10px;
-  margin:5px;
-  cursor:pointer;
+.logo {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 20px;
 }
 
-#chat{
-  height:300px;
-  overflow:auto;
-  border:1px solid red;
-  padding:10px;
-  margin-top:10px;
-  background:#111;
+.clear-btn {
+  margin-top: 20px;
+  padding: 10px;
+  background: #ff4444;
+  border-radius: 8px;
+  cursor: pointer;
+  display: none;
+  text-align: center;
 }
 
-input,button{
-  padding:6px;
-  margin:5px;
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
-.creator{
-  color:white;
-  font-weight:bold;
+.header {
+  padding: 20px;
+  font-size: 20px;
+  font-weight: bold;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.admin{
-  color:red;
-  font-weight:bold;
+.messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.system{
-  color:gray;
+.message {
+  padding: 12px 16px;
+  border-radius: 15px;
+  max-width: 60%;
+  position: relative;
+}
+
+.creator {
+  background: gold;
+  color: black;
+  align-self: flex-end;
+}
+
+.admin {
+  background: #ff4444;
+  align-self: flex-end;
+}
+
+.user {
+  background: rgba(255,255,255,0.1);
+  align-self: flex-start;
+}
+
+.delete-btn {
+  position: absolute;
+  right: -25px;
+  top: 0;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.input-area {
+  display: flex;
+  padding: 20px;
+  background: rgba(0,0,0,0.4);
+}
+
+.input-area input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+}
+
+.input-area button {
+  margin-left: 10px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: none;
+  background: #5865f2;
+  color: white;
+  cursor: pointer;
 }
 </style>
 </head>
 
 <body>
 
-<header>🔥 Ultimate Global Chat 🔥</header>
-
-<div id="rooms">
-<button onclick="switchRoom('global')">🌍 Global</button>
-<button onclick="switchRoom('boys')">🔵 Boys</button>
-<button onclick="switchRoom('girls')">🔴 Girls</button>
+<div class="sidebar">
+  <div class="logo">💬 Chat With Me</div>
+  <div class="clear-btn" id="clearChat" onclick="clearChat()">🗑 Clear Chat</div>
 </div>
 
-<input id="username" placeholder="Username">
-<br>
-<div id="chat"></div>
-<br>
-<input id="messageInput" placeholder="Type message">
-<button onclick="sendMessage()">Send</button>
+<div class="chat-container">
+  <div class="header">Global Room</div>
+  <div class="messages" id="messages"></div>
+
+  <div class="input-area">
+    <input type="text" id="username" placeholder="Your name">
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
 
 <script>
+let role = "user";
+let messages = [];
 
-let rooms = {
-  global:[],
-  boys:[],
-  girls:[]
-};
+const CREATOR_KEY = "creator2026";
+const ADMIN_KEY = "admin2026";
 
-let currentRoom="global";
+/* 🔐 Detect Role From URL */
+function checkRoleFromURL(){
+  const params = new URLSearchParams(window.location.search);
+  const roleParam = params.get("role");
+  const key = params.get("key");
 
-let bannedUsers = JSON.parse(localStorage.getItem("bannedUsers")) || [];
-let mutedUsers = JSON.parse(localStorage.getItem("mutedUsers")) || [];
-
-let role="user";
-
-
-// 🔐 LINK ROLE CHECK
-if(window.location.href.includes("@creator")){
-  let pass=prompt("Creator Password?");
-  if(pass==="creator2"){
-    role="creator";
-    alert("👑 Creator Mode Activated");
+  if(roleParam === "creator" && key === CREATOR_KEY){
+    role = "creator";
+    alert("👑 CREATOR MODE");
   }
-}
-else if(window.location.href.includes("@admin")){
-  let pass=prompt("Admin Password?");
-  if(pass==="admin2"){
-    role="admin";
-    alert("⚡ Admin Mode Activated");
+  else if(roleParam === "admin" && key === ADMIN_KEY){
+    role = "admin";
+    alert("⚡ ADMIN MODE");
+  }
+
+  if(role === "admin" || role === "creator"){
+    document.getElementById("clearChat").style.display = "block";
   }
 }
 
+checkRoleFromURL();
 
-// 🚫 BAD WORD FILTER
-const badWords = ["fuck","shit","ass","bitch","fucker","motherfucker"];
-
-function filterText(text){
-  let clean=text;
-  badWords.forEach(word=>{
-    let regex=new RegExp(word,"gi");
-    clean=clean.replace(regex,"****");
-  });
-  return clean;
-}
-
-
-// SWITCH ROOM
-function switchRoom(room){
-  currentRoom=room;
-  render();
-}
-
-
-// SEND MESSAGE
 function sendMessage(){
-  let user=document.getElementById("username").value.trim();
-  let msg=document.getElementById("messageInput").value.trim();
-  if(!user || !msg) return;
+  let username = document.getElementById("username").value || "Guest";
+  let text = document.getElementById("messageInput").value.trim();
+  if(text === "") return;
 
-  if(bannedUsers.includes(user)){
-    alert("You are banned.");
-    return;
-  }
-
-  if(mutedUsers.includes(user)){
-    alert("You are muted.");
-    return;
-  }
-
-  // COMMANDS
-  if(msg.startsWith("/ban ") && role!=="user"){
-    let target=msg.split(" ")[1];
-    if(role==="admin" && target==="creator"){
-      alert("Admins cannot ban creator.");
-      return;
-    }
-    if(role==="creator"){
-      bannedUsers.push(target);
-      localStorage.setItem("bannedUsers",JSON.stringify(bannedUsers));
-      alert(target+" banned.");
-    }
-    else if(role==="admin"){
-      bannedUsers.push(target);
-      localStorage.setItem("bannedUsers",JSON.stringify(bannedUsers));
-      alert(target+" banned.");
-    }
-    return;
-  }
-
-  if(msg.startsWith("/mute ") && role!=="user"){
-    let target=msg.split(" ")[1];
-    if(role==="admin" && target==="creator"){
-      alert("Admins cannot mute creator.");
-      return;
-    }
-    mutedUsers.push(target);
-    localStorage.setItem("mutedUsers",JSON.stringify(mutedUsers));
-    alert(target+" muted.");
-    return;
-  }
-
-  msg=filterText(msg);
-
-  rooms[currentRoom].push({
-    user:user,
-    text:msg,
-    role:role
-  });
-
-  document.getElementById("messageInput").value="";
+  messages.push({user: username, text: text, role: role});
+  document.getElementById("messageInput").value = "";
   render();
 }
 
-
-// RENDER
 function render(){
-  let chat=document.getElementById("chat");
-  chat.innerHTML="";
+  const container = document.getElementById("messages");
+  container.innerHTML = "";
 
-  rooms[currentRoom].forEach(m=>{
-    let div=document.createElement("div");
+  messages.forEach((msg, index)=>{
+    let div = document.createElement("div");
+    div.classList.add("message");
 
-    if(m.role==="creator"){
-      div.className="creator";
-      div.innerHTML="👑 "+m.user+": "+m.text;
+    if(msg.role === "creator"){
+      div.classList.add("creator");
+      div.innerText = "👑 " + msg.user + ": " + msg.text;
     }
-    else if(m.role==="admin"){
-      div.className="admin";
-      div.innerHTML="⚡ "+m.user+": "+m.text;
+    else if(msg.role === "admin"){
+      div.classList.add("admin");
+      div.innerText = "⚡ " + msg.user + ": " + msg.text;
     }
     else{
-      div.innerHTML=m.user+": "+m.text;
+      div.classList.add("user");
+      div.innerText = msg.user + ": " + msg.text;
     }
 
-    chat.appendChild(div);
+    if(role === "admin" || role === "creator"){
+      let del = document.createElement("span");
+      del.innerText = " ❌";
+      del.className = "delete-btn";
+      del.onclick = () => {
+        messages.splice(index,1);
+        render();
+      };
+      div.appendChild(del);
+    }
+
+    container.appendChild(div);
   });
 
-  chat.scrollTop=chat.scrollHeight;
+  container.scrollTop = container.scrollHeight;
 }
 
+function clearChat(){
+  messages = [];
+  render();
+}
 </script>
 
 </body>
